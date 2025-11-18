@@ -1,0 +1,179 @@
+Type: `aap`
+
+<!--
+  Include a short description about the post-processor. This is a good place
+  to call out what the post-processor does, and any additional text that might
+  be helpful to a user.
+-->
+
+The Ansible Automation Platform (AAP) post-processor integrates Packer builds with Red Hat Ansible Automation Platform. It can create inventories, register hosts, and trigger job templates after a successful build.
+
+This post-processor is useful for automatically registering newly created infrastructure (VMs, containers, etc.) with your AAP installation and optionally running configuration management jobs immediately after provisioning.
+
+<!-- Post-Processor Configuration Fields -->
+
+## Configuration
+
+**Required**
+
+- `aap_url` (string) - The base URL of your Ansible Automation Platform installation (e.g., `https://aap.example.com`).
+
+- `aap_username` (string) - The username for authenticating to AAP.
+
+- `aap_password` (string) - The password for authenticating to AAP.
+
+**Optional**
+
+### Inventory Management
+
+- `create_inventory` (boolean) - If `true`, creates a new inventory in AAP. Default: `false`.
+
+- `inventory_name` (string) - Name for the inventory to create. Required if `create_inventory` is `true`.
+
+- `inventory_description` (string) - Description for the inventory. Optional.
+
+- `organization_id` (integer) - The organization ID for the inventory. Required if `create_inventory` is `true`.
+
+- `existing_inventory_id` (integer) - Use an existing inventory by ID instead of creating a new one.
+
+### Host Management
+
+- `create_host` (boolean) - If `true`, creates a host entry in AAP. Default: `false`.
+
+- `host_name` (string) - Name for the host. If not specified, uses the artifact ID from the builder.
+
+- `host_description` (string) - Description for the host. Optional.
+
+- `host_variables` (map[string]string) - Variables to set on the host. The post-processor automatically adds `packer_artifact_id` and `packer_builder_type` to the variables.
+
+- `add_host_to_inventory` (boolean) - If `true`, associates the host with an inventory. Requires either `create_inventory` to be `true` or `existing_inventory_id` to be set. Default: `false`.
+
+### Job Template Execution
+
+- `run_job_template` (boolean) - If `true`, launches a job template after creating the inventory/host. Default: `false`.
+
+- `job_template_id` (integer) - The ID of the job template to run. Required if `run_job_template` is `true`.
+
+- `job_limit` (string) - Limit the job execution to specific hosts. Optional.
+
+- `job_extra_vars` (map[string]string) - Extra variables to pass to the job template. The post-processor automatically adds `packer_artifact_id` to the extra variables.
+
+## Example Usage
+
+### Basic Example - Create Inventory and Add Host
+
+```hcl
+source "amazon-ebs" "example" {
+  ami_name      = "packer-example-{{timestamp}}"
+  instance_type = "t2.micro"
+  region        = "us-east-1"
+  source_ami    = "ami-0c55b159cbfafe1f0"
+  ssh_username  = "ubuntu"
+}
+
+build {
+  sources = ["source.amazon-ebs.example"]
+
+  post-processor "aap" {
+    aap_url      = "https://aap.example.com"
+    aap_username = "admin"
+    aap_password = "password"
+
+    create_inventory     = true
+    inventory_name       = "packer-builds"
+    inventory_description = "Automatically created by Packer"
+    organization_id      = 1
+
+    create_host          = true
+    add_host_to_inventory = true
+    host_description     = "EC2 instance built by Packer"
+    host_variables = {
+      "environment" = "production"
+      "ansible_host" = "{{ build `PublicIP` }}"
+    }
+  }
+}
+```
+
+### Add Host to Existing Inventory
+
+```hcl
+build {
+  sources = ["source.amazon-ebs.example"]
+
+  post-processor "aap" {
+    aap_url      = "https://aap.example.com"
+    aap_username = "admin"
+    aap_password = "password"
+
+    existing_inventory_id = 42
+
+    create_host          = true
+    add_host_to_inventory = true
+    host_name            = "web-server-01"
+    host_variables = {
+      "ansible_host" = "10.0.1.100"
+      "ansible_port" = "22"
+    }
+  }
+}
+```
+
+### Create Inventory, Add Host, and Run Job Template
+
+```hcl
+build {
+  sources = ["source.amazon-ebs.example"]
+
+  post-processor "aap" {
+    aap_url      = "https://aap.example.com"
+    aap_username = "admin"
+    aap_password = "password"
+
+    create_inventory     = true
+    inventory_name       = "packer-builds"
+    organization_id      = 1
+
+    create_host          = true
+    add_host_to_inventory = true
+    host_variables = {
+      "environment" = "staging"
+    }
+
+    run_job_template = true
+    job_template_id  = 10
+    job_limit        = "{{ build `Name` }}"
+    job_extra_vars = {
+      "setup_mode" = "initial"
+    }
+  }
+}
+```
+
+### Create Host Without Inventory Association
+
+```hcl
+build {
+  sources = ["source.amazon-ebs.example"]
+
+  post-processor "aap" {
+    aap_url      = "https://aap.example.com"
+    aap_username = "admin"
+    aap_password = "password"
+
+    create_host     = true
+    host_name       = "standalone-host"
+    host_description = "Host created without inventory association"
+    host_variables = {
+      "ansible_host" = "192.168.1.100"
+    }
+  }
+}
+```
+
+## Notes
+
+- The post-processor uses HTTP Basic Authentication to connect to AAP. Ensure your AAP instance is configured to accept basic auth.
+- Host variables are automatically enriched with `packer_artifact_id` and `packer_builder_type` to track which Packer build created the host.
+- When running job templates, the artifact ID is automatically added to `extra_vars` for use in your playbooks.
+- The post-processor returns the original artifact unchanged, so it can be chained with other post-processors.

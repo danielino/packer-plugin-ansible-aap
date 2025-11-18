@@ -1,4 +1,4 @@
-module github.com/hashicorp/packer-plugin-scaffolding
+module github.com/danielino/packer-plugin-ansible-aap
 
 go 1.23.2
 
