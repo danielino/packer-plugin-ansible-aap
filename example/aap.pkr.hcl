@@ -1,11 +1,13 @@
 # Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
-# Example Packer template for using the AAP post-processor
-# This example demonstrates the AAP post-processor capabilities:
+# Example Packer template for using the AAP provisioner
+# This example demonstrates the AAP provisioner capabilities:
 # 1. Creating an inventory in Ansible Automation Platform
 # 2. Adding a host to the inventory
 # 3. Running a job template
+#
+# The provisioner runs BEFORE the VM is powered off, during the provisioning phase
 
 packer {
   required_plugins {
@@ -50,10 +52,9 @@ source "null" "example" {
 build {
   sources = ["source.null.example"]
 
-  # Example 1: Create inventory and add host
-  post-processor "aap" {
-    name = "create-inventory-and-host"
-
+  # Example 1: Create inventory and add host during provisioning
+  # This runs BEFORE the VM is powered off
+  provisioner "aap" {
     aap_url      = var.aap_url
     aap_username = var.aap_username
     aap_password = var.aap_password
@@ -68,7 +69,7 @@ build {
     create_host           = true
     add_host_to_inventory = true
     host_name             = "example-host-${timestamp()}"
-    host_description      = "Example host created by Packer"
+    host_description      = "Example host created by Packer provisioner"
     host_variables = {
       environment  = "development"
       ansible_host = "10.0.1.100"
@@ -80,8 +81,9 @@ build {
     run_job_template = true
     job_template_id  = 5
     job_extra_vars = {
-      setup_type = "initial"
+      setup_type  = "initial"
       app_version = "1.0.0"
     }
   }
 }
+

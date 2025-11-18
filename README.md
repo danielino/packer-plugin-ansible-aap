@@ -7,12 +7,13 @@ This plugin provides integration between HashiCorp Packer and Red Hat Ansible Au
 - **Create Inventory**: Automatically create inventories in Ansible Automation Platform
 - **Add Host to Inventory**: Register newly created hosts with AAP inventories
 - **Create Host**: Create standalone hosts in AAP without inventory association
-- **Run Job Template**: Trigger job templates immediately after provisioning
+- **Run Job Template**: Trigger job templates during or after provisioning
 
 ## Components
 
 This plugin contains:
-- An AAP post-processor ([post-processor/aap](post-processor/aap)) - Main component for AAP integration
+- An AAP provisioner ([provisioner/aap](provisioner/aap)) - Runs during provisioning, before VM shutdown
+- An AAP post-processor ([post-processor/aap](post-processor/aap)) - Runs after build completion
 - A builder ([builder/scaffolding](builder/scaffolding))
 - A provisioner ([provisioner/scaffolding](provisioner/scaffolding))
 - A post-processor ([post-processor/scaffolding](post-processor/scaffolding))
@@ -21,6 +22,10 @@ This plugin contains:
 - Working examples ([example](example))
 
 ## Usage
+
+### Using the Provisioner (Recommended)
+
+The provisioner runs **before the VM is powered off**, during the provisioning phase. This is the recommended approach.
 
 Add the plugin to your Packer template:
 
@@ -34,6 +39,29 @@ packer {
   }
 }
 
+build {
+  sources = ["source.amazon-ebs.example"]
+
+  provisioner "aap" {
+    aap_url      = "https://aap.example.com"
+    aap_username = "admin"
+    aap_password = "password"
+
+    create_inventory     = true
+    inventory_name       = "packer-builds"
+    organization_id      = 1
+
+    create_host          = true
+    add_host_to_inventory = true
+  }
+}
+```
+
+### Using the Post-Processor
+
+The post-processor runs **after the build is complete**. Use this if you need to process the artifact after the VM is shut down.
+
+```hcl
 build {
   sources = ["source.amazon-ebs.example"]
 
