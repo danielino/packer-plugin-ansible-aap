@@ -1,33 +1,58 @@
-# Packer Plugin Scaffolding
+# Packer Plugin Ansible AAP
 
-This repository is a template for a Packer multi-component plugin. It is intended as a starting point for creating Packer plugins, containing:
+This plugin provides integration between HashiCorp Packer and Red Hat Ansible Automation Platform (AAP). It enables automatic registration of newly provisioned infrastructure with AAP, including inventory creation, host registration, and job template execution.
+
+## Features
+
+- **Create Inventory**: Automatically create inventories in Ansible Automation Platform
+- **Add Host to Inventory**: Register newly created hosts with AAP inventories
+- **Create Host**: Create standalone hosts in AAP without inventory association
+- **Run Job Template**: Trigger job templates immediately after provisioning
+
+## Components
+
+This plugin contains:
+- An AAP post-processor ([post-processor/aap](post-processor/aap)) - Main component for AAP integration
 - A builder ([builder/scaffolding](builder/scaffolding))
 - A provisioner ([provisioner/scaffolding](provisioner/scaffolding))
 - A post-processor ([post-processor/scaffolding](post-processor/scaffolding))
 - A data source ([datasource/scaffolding](datasource/scaffolding))
 - Docs ([docs](docs))
-- A working example ([example](example))
+- Working examples ([example](example))
 
-These folders contain boilerplate code that you will need to edit to create your own Packer multi-component plugin.
-A full guide to creating Packer plugins can be found at [Extending Packer](https://www.packer.io/docs/plugins/creation).
+## Usage
 
-In this repository you will also find a pre-defined GitHub Action configuration for the release workflow
-(`.goreleaser.yml` and `.github/workflows/release.yml`). The release workflow configuration makes sure the GitHub
-release artifacts are created with the correct binaries and naming conventions.
+Add the plugin to your Packer template:
 
-Please see the [GitHub template repository documentation](https://docs.github.com/en/free-pro-team@latest/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template)
-for how to create a new repository from this template on GitHub.
+```hcl
+packer {
+  required_plugins {
+    ansible-aap = {
+      version = ">=v0.1.0"
+      source  = "github.com/danielino/ansible-aap"
+    }
+  }
+}
 
-## Packer plugin projects
+build {
+  sources = ["source.amazon-ebs.example"]
 
-Here's a non exaustive list of Packer plugins that you can checkout:
+  post-processor "aap" {
+    aap_url      = "https://aap.example.com"
+    aap_username = "admin"
+    aap_password = "password"
 
-* [github.com/hashicorp/packer-plugin-docker](https://github.com/hashicorp/packer-plugin-docker)
-* [github.com/exoscale/packer-plugin-exoscale](https://github.com/exoscale/packer-plugin-exoscale)
-* [github.com/sylviamoss/packer-plugin-comment](https://github.com/sylviamoss/packer-plugin-comment)
-* [github.com/hashicorp/packer-plugin-hashicups](https://github.com/hashicorp/packer-plugin-hashicups)
+    create_inventory     = true
+    inventory_name       = "packer-builds"
+    organization_id      = 1
 
-Looking at their code will give you good examples.
+    create_host          = true
+    add_host_to_inventory = true
+  }
+}
+```
+
+See [example/aap.pkr.hcl](example/aap.pkr.hcl) for a complete example.
 
 ## Build from source
 
@@ -35,14 +60,14 @@ Looking at their code will give you good examples.
 
 2. Run this command from the root directory: 
 ```shell 
-go build -ldflags="-X github.com/hashicorp/packer-plugin-scaffolding/version.VersionPrerelease=dev" -o packer-plugin-scaffolding
+go build -ldflags="-X github.com/danielino/packer-plugin-ansible-aap/version.VersionPrerelease=dev" -o packer-plugin-ansible-aap
 ```
 
-3. After you successfully compile, the `packer-plugin-scaffolding` plugin binary file is in the root directory. 
+3. After you successfully compile, the `packer-plugin-ansible-aap` plugin binary file is in the root directory. 
 
 4. To install the compiled plugin, run the following command 
 ```shell
-packer plugins install --path packer-plugin-scaffolding github.com/hashicorp/scaffolding
+packer plugins install --path packer-plugin-ansible-aap github.com/danielino/ansible-aap
 ```
 
 ### Build on *nix systems
